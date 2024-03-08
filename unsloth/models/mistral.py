@@ -240,6 +240,8 @@ def MistralForCausalLM_fast_forward(
         pass
         
         shift_labels = torch.hstack((labels[..., 1:], self.extra_ignored_labels[:labels.shape[0]]))
+        if shift_labels.device != shift_logits.device:
+            shift_labels = shift_labels.to(shift_logits.device)
         loss = fast_cross_entropy_loss(
             logits = shift_logits,
             labels = shift_labels,

@@ -39,11 +39,12 @@ pass
 
 
 def swiglu_fg_kernel(e, g):
-    batch, seq_len, hd = e.shape
-    n_elements = e.numel()
-    h = torch.empty((batch, seq_len, hd), dtype = e.dtype, device = "cuda")
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
-    _fg_kernel[grid](e, g, h, n_elements, BLOCK_SIZE = 1024,)
+    with torch.cuda.device(e.device):
+        batch, seq_len, hd = e.shape
+        n_elements = e.numel()
+        h = torch.empty((batch, seq_len, hd), dtype = e.dtype, device = "cuda")
+        grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
+        _fg_kernel[grid](e, g, h, n_elements, BLOCK_SIZE = 1024,)
     return h
 pass
 

@@ -16,28 +16,28 @@ import warnings
 import importlib
 
 # Currently only supports 1 GPU, or else seg faults will occur.
-if "CUDA_VISIBLE_DEVICES" in os.environ:
-    device = os.environ["CUDA_VISIBLE_DEVICES"]
-    if not device.isdigit():
-        warnings.warn(
-            f"Unsloth: 'CUDA_VISIBLE_DEVICES' is currently {device} "\
-             "but we require 'CUDA_VISIBLE_DEVICES=0'\n"\
-             "We shall set it ourselves."
-        )
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    elif "CUDA_DEVICE_ORDER" not in os.environ:
-        warnings.warn(
-            f"Unsloth: 'CUDA_DEVICE_ORDER' is not set "\
-             "but we require 'CUDA_DEVICE_ORDER=PCI_BUS_ID'\n"\
-             "We shall set it ourselves."
-        )
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-else:
-    # warnings.warn("Unsloth: 'CUDA_VISIBLE_DEVICES' is not set. We shall set it ourselves.")
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-pass
+# if "CUDA_VISIBLE_DEVICES" in os.environ:
+#     device = os.environ["CUDA_VISIBLE_DEVICES"]
+#     if not device.isdigit():
+#         warnings.warn(
+#             f"Unsloth: 'CUDA_VISIBLE_DEVICES' is currently {device} "\
+#              "but we require 'CUDA_VISIBLE_DEVICES=0'\n"\
+#              "We shall set it ourselves."
+#         )
+#         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+#         os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+#     elif "CUDA_DEVICE_ORDER" not in os.environ:
+#         warnings.warn(
+#             f"Unsloth: 'CUDA_DEVICE_ORDER' is not set "\
+#              "but we require 'CUDA_DEVICE_ORDER=PCI_BUS_ID'\n"\
+#              "We shall set it ourselves."
+#         )
+#         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# else:
+#     # warnings.warn("Unsloth: 'CUDA_VISIBLE_DEVICES' is not set. We shall set it ourselves.")
+#     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# pass
 
 try:
     import torch

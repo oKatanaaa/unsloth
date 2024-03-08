@@ -131,11 +131,12 @@ pass
 
 
 def geglu_approx_forward_kernel(gate, up):
-    batch, seq_len, hd = gate.shape
-    n_elements = gate.numel()
-    out = torch.empty((batch, seq_len, hd), dtype = gate.dtype, device = "cuda")
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
-    _approx_forward_kernel[grid](gate, up, out, n_elements, BLOCK_SIZE = 1024,)
+    with torch.cuda.device(gate.device):
+        batch, seq_len, hd = gate.shape
+        n_elements = gate.numel()
+        out = torch.empty((batch, seq_len, hd), dtype = gate.dtype, device = "cuda")
+        grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']),)
+        _approx_forward_kernel[grid](gate, up, out, n_elements, BLOCK_SIZE = 1024,)
     return out
 pass
 

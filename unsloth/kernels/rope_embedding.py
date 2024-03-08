@@ -67,52 +67,54 @@ pass
 class Fast_RoPE_Embedding(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Q, cos, sin):
-        cos, sin = cos.squeeze(), sin.squeeze()
-        batch, seq_len, n_heads, head_dim = Q.shape
-        Q = Q.view(batch*seq_len, n_heads*head_dim)
-        n_rows, n_cols = Q.shape
-        assert(seq_len <= cos.shape[0])
+        with torch.cuda.device(Q.device):
+            cos, sin = cos.squeeze(), sin.squeeze()
+            batch, seq_len, n_heads, head_dim = Q.shape
+            Q = Q.view(batch*seq_len, n_heads*head_dim)
+            n_rows, n_cols = Q.shape
+            assert(seq_len <= cos.shape[0])
 
-        # [TODO] Changing blocksize to head_dim//2 seems to have
-        # some concurrency / un-deterministic issues.
-        BLOCK_SIZE, num_warps = calculate_settings(head_dim) # (head_dim//2)
-        _rope_embedding[(n_rows, n_heads,)](
-              Q,   Q.stride(0),
-            cos, cos.stride(0),
-            sin, sin.stride(0),
-            seq_len, head_dim,
-            BACKWARD_PASS = False,
-            BLOCK_SIZE = BLOCK_SIZE,
-            num_warps  = num_warps,
-        )
-        ctx.BLOCK_SIZE = BLOCK_SIZE
-        ctx.num_warps  = num_warps
-        ctx.cos = cos
-        ctx.sin = sin
-        return Q.view(batch, seq_len, n_heads, head_dim)
+            # [TODO] Changing blocksize to head_dim//2 seems to have
+            # some concurrency / un-deterministic issues.
+            BLOCK_SIZE, num_warps = calculate_settings(head_dim) # (head_dim//2)
+            _rope_embedding[(n_rows, n_heads,)](
+                Q,   Q.stride(0),
+                cos, cos.stride(0),
+                sin, sin.stride(0),
+                seq_len, head_dim,
+                BACKWARD_PASS = False,
+                BLOCK_SIZE = BLOCK_SIZE,
+                num_warps  = num_warps,
+            )
+            ctx.BLOCK_SIZE = BLOCK_SIZE
+            ctx.num_warps  = num_warps
+            ctx.cos = cos
+            ctx.sin = sin
+            return Q.view(batch, seq_len, n_heads, head_dim)
     pass
 
     @staticmethod
     def backward(ctx, dY):
-        batch, seq_len, n_heads, head_dim = dY.shape
-        dY = dY.reshape(batch*seq_len, n_heads*head_dim)
-        # Must be reshape not view
-        n_rows, n_cols = dY.shape
+        with torch.cuda.device(dY.device):
+            batch, seq_len, n_heads, head_dim = dY.shape
+            dY = dY.reshape(batch*seq_len, n_heads*head_dim)
+            # Must be reshape not view
+            n_rows, n_cols = dY.shape
 
-        cos = ctx.cos
-        sin = ctx.sin
+            cos = ctx.cos
+            sin = ctx.sin
 
-        _rope_embedding[(n_rows, n_heads,)](
-            dY,  dY .stride(0),
-            cos, cos.stride(0),
-            sin, sin.stride(0),
-            seq_len, head_dim,
-            BACKWARD_PASS = True,
-            BLOCK_SIZE = ctx.BLOCK_SIZE,
-            num_warps  = ctx.num_warps,
-        )
-        dY = dY.view(batch, seq_len, n_heads, head_dim)
-        return dY, None, None,
+            _rope_embedding[(n_rows, n_heads,)](
+                dY,  dY .stride(0),
+                cos, cos.stride(0),
+                sin, sin.stride(0),
+                seq_len, head_dim,
+                BACKWARD_PASS = True,
+                BLOCK_SIZE = ctx.BLOCK_SIZE,
+                num_warps  = ctx.num_warps,
+            )
+            dY = dY.view(batch, seq_len, n_heads, head_dim)
+            return dY, None, None,
     pass
 pass
 

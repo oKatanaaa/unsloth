@@ -745,6 +745,9 @@ def CausalLM_fast_forward(fast_forward_inference):
             logits = torch.mv(self.lm_head.weight, hidden_states.ravel())
             logits = logits.unsqueeze(0).unsqueeze(0)
         else:
+            lm_head_device = next(self.lm_head.parameters()).device
+            if hidden_states.device != lm_head_device:
+                hidden_states = hidden_states.to(lm_head_device)
             logits = self.lm_head(hidden_states)
         pass
 
