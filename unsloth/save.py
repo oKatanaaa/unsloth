@@ -210,6 +210,23 @@ def _merge_lora(layer, name):
     return W, bias
 
 
+def _get_modules_to_save_weight(module, adapter_name = "default"):
+    modules_to_save = getattr(module, "modules_to_save", None)
+    if modules_to_save is not None:
+        for key in (adapter_name, "default"):
+            candidate = None
+            if hasattr(modules_to_save, key):
+                candidate = getattr(modules_to_save, key)
+            else:
+                try:
+                    candidate = modules_to_save[key]
+                except Exception:
+                    candidate = None
+            if candidate is not None and hasattr(candidate, "weight"):
+                return candidate.weight
+    return module.weight
+
+
 def fast_save_pickle(shard, name):
     # Use this if # CPUs is <= 2
     print(f"Unsloth: Saving {name}...")
@@ -612,10 +629,19 @@ def unsloth_save_model(
         elif torch_dtype == "bfloat16":
             torch_dtype = torch.bfloat16
 
+    adapter_name = getattr(model, "active_adapter", None)
+    if adapter_name is None:
+        adapters = getattr(model, "active_adapters", None)
+        if isinstance(adapters, (list, tuple)) and len(adapters) > 0:
+            adapter_name = adapters[0]
+    if adapter_name is None:
+        adapter_name = "default"
+
     # Check modules to save float32 dtype
-    state_dict["model.embed_tokens.weight"] = (
-        internal_model.model.embed_tokens.weight.data.to(torch_dtype)
+    embed_tokens_weight = _get_modules_to_save_weight(
+        internal_model.model.embed_tokens, adapter_name
     )
+    state_dict["model.embed_tokens.weight"] = embed_tokens_weight.data.to(torch_dtype)
 
     max_vram = int(
         torch.cuda.get_device_properties(0).total_memory * maximum_memory_usage
@@ -670,14 +696,13 @@ def unsloth_save_model(
     state_dict["model.norm.weight"] = internal_model.model.norm.weight.data
     # Check for modules_to_save float32 dtype
 
+    lm_head_weight = _get_modules_to_save_weight(
+        internal_model.lm_head, adapter_name
+    )
+
     # Check for tied weights
-    if (
-        internal_model.model.embed_tokens.weight.data_ptr()
-        != internal_model.lm_head.weight.data_ptr()
-    ):
-        state_dict["lm_head.weight"] = internal_model.lm_head.weight.data.to(
-            torch_dtype
-        )
+    if embed_tokens_weight.data_ptr() != lm_head_weight.data_ptr():
+        state_dict["lm_head.weight"] = lm_head_weight.data.to(torch_dtype)
 
     # All tensors MUST be type torch.Tensor and not torch.nn.parameter.Parameter
     for key, value in state_dict.items():
