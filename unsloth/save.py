@@ -214,15 +214,15 @@ def _get_modules_to_save_weight(module, adapter_name = "default"):
     modules_to_save = getattr(module, "modules_to_save", None)
     if modules_to_save is not None:
         for key in (adapter_name, "default"):
-            candidate = None
-            if hasattr(modules_to_save, key):
-                candidate = getattr(modules_to_save, key)
-            else:
-                try:
-                    candidate = modules_to_save[key]
-                except Exception:
-                    candidate = None
+            try:
+                candidate = modules_to_save[key]
+            except Exception:
+                candidate = None
             if candidate is not None and hasattr(candidate, "weight"):
+                return candidate.weight
+        # Fallback: pick the first available modules_to_save entry
+        for _, candidate in modules_to_save.items():
+            if hasattr(candidate, "weight"):
                 return candidate.weight
     return module.weight
 
@@ -800,6 +800,10 @@ def unsloth_save_model(
     new_config = model.config.to_dict()
     if "quantization_config" in new_config:
         del new_config["quantization_config"]
+    # Older transformers versions may crash when loading local tokenizers if
+    # `transformers_version` is present but parsed as a plain dict, so drop it.
+    if "transformers_version" in new_config:
+        del new_config["transformers_version"]
     original_model = model
     new_config = type(model.config).from_dict(new_config)
     while hasattr(original_model, "model"):
